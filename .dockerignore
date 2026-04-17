@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+orbyt-flow
+*.exe
+
+# Data directory (don't copy local data into image)
+data/
+
+# Documentation
+*.md
+!README.md
+
+# Docker files (no need to copy into build context)
+Dockerfile
+docker-compose.yml
+.dockerignore
