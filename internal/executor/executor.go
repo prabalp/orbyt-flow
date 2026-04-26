@@ -6,9 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
+	"maps"
 	"time"
 
 	"orbyt-flow/internal/runner"
+	"orbyt-flow/internal/services"
 	"orbyt-flow/internal/store"
 	"orbyt-flow/internal/template"
 	"orbyt-flow/internal/types"
@@ -18,6 +21,8 @@ import (
 type Executor struct {
 	Store   store.Store
 	Runners map[string]runner.Runner
+	// DataDir is the file store root (e.g. FLOWENGINE_DATA_DIR). When non-empty, Google OAuth tokens are refreshed before each run so env GOOGLE_ACCESS_TOKEN stays valid.
+	DataDir string
 }
 
 // NewExecutor creates an Executor wired to the default runner registry.
@@ -52,8 +57,8 @@ func (e *Executor) Execute(ctx context.Context, w *types.Workflow, triggerPayloa
 	}
 
 	// 3 & 4. Build adjacency and in-degree maps.
-	adj := make(map[string][]string)      // from → []to
-	inDeg := make(map[string]int)         // node → in-degree
+	adj := make(map[string][]string) // from → []to
+	inDeg := make(map[string]int)    // node → in-degree
 	nodeMap := make(map[string]types.Node)
 
 	for _, n := range w.Nodes {
@@ -80,6 +85,21 @@ func (e *Executor) Execute(ctx context.Context, w *types.Workflow, triggerPayloa
 	env := map[string]string{}
 	if len(envOverride) > 0 && envOverride[0] != nil {
 		env = envOverride[0]
+	}
+	if e.DataDir != "" {
+		services.SetDataDir(e.DataDir)
+		if _, err := services.LoadGoogleToken(w.UserID); err == nil {
+			if err := services.EnsureFreshGoogleToken(w.UserID); err != nil {
+				log.Printf("warn: google token refresh failed for user %s: %v", w.UserID, err)
+			}
+		}
+		env = maps.Clone(env)
+		tok := services.ReadUserEnvValue(w.UserID, services.GoogleUserSecretsAccessKey)
+		if tok != "" {
+			env[services.GoogleUserSecretsAccessKey] = tok
+		} else {
+			delete(env, services.GoogleUserSecretsAccessKey)
+		}
 	}
 	tplCtx := &template.Context{
 		Env:         env,

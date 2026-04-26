@@ -18,6 +18,8 @@ const (
 	NodeSendTelegram = "send_telegram"
 	NodeSendEmail    = "send_email"
 	NodeRunJS        = "run_js"
+	NodeRunScript    = "run_script"
+	NodeScript       = "script"
 	NodeWait         = "wait"
 	NodeLog          = "log"
 	NodeSubWorkflow  = "sub_workflow"

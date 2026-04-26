@@ -5,23 +5,30 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/joho/godotenv"
+
 	"orbyt-flow/internal/api"
-	"orbyt-flow/internal/env"
 	"orbyt-flow/internal/executor"
 	mcpsrv "orbyt-flow/internal/mcp"
+	"orbyt-flow/internal/services"
 	"orbyt-flow/internal/store"
 )
 
 func main() {
-	if err := env.ApplyDotEnv(".env"); err != nil {
-		log.Printf("warning: load .env: %v", err)
+	// Load .env from cwd if present; ignore missing file.
+	_ = godotenv.Load()
+	if p := os.Getenv("ORBYT_DOTENV"); p != "" {
+		_ = godotenv.Load(p)
 	}
 
 	dataDir := getEnv("FLOWENGINE_DATA_DIR", "./data")
 	port, _ := strconv.Atoi(getEnv("PORT", "8085"))
 
+	services.SetDataDir(dataDir)
+
 	s := store.NewFileStore(dataDir)
 	ex := executor.NewExecutor(s)
+	ex.DataDir = dataDir
 
 	if os.Getenv("MCP_MODE") == "true" {
 		userID := getEnv("MCP_USER_ID", "default")

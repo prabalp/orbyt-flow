@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"orbyt-flow/internal/executor"
+	"orbyt-flow/internal/routes"
 	"orbyt-flow/internal/store"
 	"orbyt-flow/internal/types"
 )
@@ -102,6 +103,8 @@ func (s *Server) buildRoutes() http.Handler {
 	mux.HandleFunc("GET /runs/{run_id}", s.auth(s.handleGetRun))
 
 	mux.HandleFunc("POST /webhook/{workflow_id}", s.handleWebhook)
+
+	routes.NewGoogleOAuth(s.auth).Register(mux)
 
 	return s.withMiddleware(mux)
 }

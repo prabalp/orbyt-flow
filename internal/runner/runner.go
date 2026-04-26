@@ -35,6 +35,8 @@ func Registry() map[string]Runner {
 		types.NodeIf:           &IfRunner{},
 		types.NodeSendTelegram: &SendTelegramRunner{},
 		types.NodeLLMCall:      &LLMCallRunner{},
+		types.NodeRunScript:    &RunScriptRunner{},
+		types.NodeScript:       &ScriptRunner{},
 	}
 }
 

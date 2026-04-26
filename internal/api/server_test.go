@@ -10,6 +10,7 @@ import (
 
 	"orbyt-flow/internal/api"
 	"orbyt-flow/internal/executor"
+	"orbyt-flow/internal/services"
 	"orbyt-flow/internal/store"
 	"orbyt-flow/internal/types"
 )
@@ -21,8 +22,10 @@ const testUserID = "user-test"
 func newTestServer(t *testing.T) *api.Server {
 	t.Helper()
 	dir := t.TempDir()
+	services.SetDataDir(dir)
 	s := store.NewFileStore(dir)
 	ex := executor.NewExecutor(s)
+	ex.DataDir = dir
 	return api.NewServer(s, ex, dir, 0)
 }
 

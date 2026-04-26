@@ -9,6 +9,7 @@ import (
 
 	"orbyt-flow/internal/executor"
 	"orbyt-flow/internal/runner"
+	"orbyt-flow/internal/services"
 	"orbyt-flow/internal/store"
 	"orbyt-flow/internal/template"
 	"orbyt-flow/internal/types"
@@ -49,11 +50,11 @@ func (m *mockRunner) Run(_ context.Context, _ runner.Input) (*runner.Output, err
 
 func makeWorkflow(nodes []types.Node, conns []types.Connection) *types.Workflow {
 	return &types.Workflow{
-		ID:     "wf-1",
-		UserID: "user-1",
-		Name:   "test",
-		Nodes:  nodes,
-		Connections: conns,
+		ID:           "wf-1",
+		UserID:       "user-1",
+		Name:         "test",
+		Nodes:        nodes,
+		Connections:  conns,
 		ErrorHandler: types.ErrorHandler{Notify: "none", Retry: 0},
 	}
 }
@@ -69,8 +70,11 @@ func mustJSON(v any) json.RawMessage {
 
 func newExec(t *testing.T, runners map[string]runner.Runner) *executor.Executor {
 	t.Helper()
-	s := store.NewFileStore(t.TempDir())
+	dir := t.TempDir()
+	s := store.NewFileStore(dir)
+	services.SetDataDir(dir)
 	ex := executor.NewExecutor(s)
+	ex.DataDir = dir
 	ex.Runners = runners
 	return ex
 }
@@ -113,8 +117,8 @@ func TestWorkflowWithIf(t *testing.T) {
 	// if runner returns next="n2" (true branch chosen)
 	ifOutput := mustJSON(map[string]any{"result": true, "next": "n2"})
 	runners := map[string]runner.Runner{
-		"task":         successRunner(mustJSON(map[string]any{"ok": true})),
-		types.NodeIf:   successRunner(ifOutput),
+		"task":       successRunner(mustJSON(map[string]any{"ok": true})),
+		types.NodeIf: successRunner(ifOutput),
 	}
 	w := makeWorkflow(
 		[]types.Node{
@@ -160,7 +164,7 @@ func TestWorkflowNodeFailure(t *testing.T) {
 		"task": &mockRunner{
 			sequence: []mockStep{
 				{output: mustJSON(map[string]any{"ok": true})}, // n1 succeeds
-				{err: errors.New("something broke")},          // n2 fails
+				{err: errors.New("something broke")},           // n2 fails
 			},
 		},
 	}
@@ -202,11 +206,11 @@ func TestWorkflowRetry(t *testing.T) {
 		},
 	}
 	w := &types.Workflow{
-		ID:          "wf-retry",
-		UserID:      "user-1",
-		Name:        "retry test",
-		Nodes:       []types.Node{node("n1", "task"), node("n2", "task"), node("n3", "task")},
-		Connections: []types.Connection{{From: "n1", To: "n2"}, {From: "n2", To: "n3"}},
+		ID:           "wf-retry",
+		UserID:       "user-1",
+		Name:         "retry test",
+		Nodes:        []types.Node{node("n1", "task"), node("n2", "task"), node("n3", "task")},
+		Connections:  []types.Connection{{From: "n1", To: "n2"}, {From: "n2", To: "n3"}},
 		ErrorHandler: types.ErrorHandler{Retry: 2}, // up to 2 retries = 3 attempts
 	}
 

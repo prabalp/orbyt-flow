@@ -12,6 +12,7 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
 	"orbyt-flow/internal/executor"
+	"orbyt-flow/internal/services"
 	"orbyt-flow/internal/store"
 	"orbyt-flow/internal/types"
 )
@@ -36,6 +37,11 @@ func NewMCPServer(s store.Store, ex *executor.Executor, dataDir, userID string) 
 
 // Start registers all tools and blocks on the stdio transport.
 func (m *MCPServer) Start() error {
+	if m.DataDir != "" {
+		// Ensure token paths resolve the same as the HTTP server (main also calls this).
+		services.SetDataDir(m.DataDir)
+	}
+
 	srv := mcpserver.NewMCPServer("orbyt-flow", "0.1.0")
 
 	srv.AddTool(m.toolCreateWorkflow(), m.handleCreateWorkflow)
@@ -48,6 +54,10 @@ func (m *MCPServer) Start() error {
 	srv.AddTool(m.toolListUserSecrets(), m.handleListUserSecrets)
 	srv.AddTool(m.toolUpsertUserSecrets(), m.handleUpsertUserSecrets)
 	srv.AddTool(m.toolDeleteUserSecret(), m.handleDeleteUserSecret)
+
+	srv.AddTool(m.toolGoogleAuthorize(), m.handleGoogleAuthorize)
+	srv.AddTool(m.toolGoogleStatus(), m.handleGoogleStatus)
+	srv.AddTool(m.toolGoogleDisconnect(), m.handleGoogleDisconnect)
 
 	return mcpserver.ServeStdio(srv)
 }
