@@ -235,7 +235,7 @@ Reference them in any node config field using `{{env.KEY_NAME}}`:
 
 ## Running as an MCP Server
 
-Set `MCP_MODE=true` to start the engine as an MCP server over stdio. The server speaks the [Model Context Protocol](https://modelcontextprotocol.io) and exposes six tools that any compatible client (Claude Desktop, Claude Code, custom SDK agents) can call.
+Set `MCP_MODE=true` to start the engine as an MCP server over stdio. The server speaks the [Model Context Protocol](https://modelcontextprotocol.io) and exposes nine tools that any compatible client (Claude Desktop, Claude Code, custom SDK agents) can call.
 
 ### MCP Environment Variables
 
@@ -255,6 +255,9 @@ Set `MCP_MODE=true` to start the engine as an MCP server over stdio. The server 
 | `get_run_status` | `run_id` | Fetch per-step execution logs for a run |
 | `list_workflows` | — | List all workflows owned by `MCP_USER_ID` |
 | `delete_workflow` | `workflow_id`, `confirm: true` | Permanently delete a workflow |
+| `list_user_secrets` | — | List env key names for `MCP_USER_ID` (values are never returned) |
+| `upsert_user_secrets` | `secrets` (object map) | Merge keys into `{dataDir}/{userID}/env.json` for `{{env.KEY}}` in workflows |
+| `delete_user_secret` | `key` | Remove one key from that user's `env.json` |
 
 #### `create_workflow`
 
@@ -313,7 +316,7 @@ Add orbyt-flow as an MCP server in `~/Library/Application Support/Claude/claude_
 }
 ```
 
-Restart Claude Desktop. The six workflow tools will appear in the tool picker. You can now ask Claude:
+Restart Claude Desktop. The orbyt-flow tools (workflows + user secrets) will appear in the tool picker. You can now ask Claude:
 
 > "Create a workflow that fetches the latest news from https://news-api.example.com every morning at 9 AM and sends it to my Telegram."
 
@@ -643,8 +646,14 @@ Use `{{namespace.path}}` in any string value inside a node's `config` object.
 | `{{vars.KEY}}` | Value set by a preceding `set_variable` node |
 | `{{nodeID.field}}` | Top-level output field of a previous node |
 | `{{nodeID.nested.path}}` | Nested field (dot notation) |
-| `{{nodeID.array.0}}` | First element of an array field |
+| `{{nodeID.array.0}}` | First element of an array field (numeric segment after the array) |
+| `{{nodeID.path[i].key}}` | Array index `i`; use `[-1]` for the last element |
+| `{{nodeID.path[*].key}}` | `key` from every array element, joined with newlines |
 | `{{trigger.field}}` | Field from the trigger payload passed to `/trigger` |
+
+**Default:** append ` | default: "fallback"` (double-quoted) to any expression; if the path is missing, the fallback string is used instead of an error.
+
+In JSON configs, string fields stay strings. If a template resolves to an object or array, it is embedded as JSON text (safe for `"body": "{{node.output}}"` in HTTP nodes). Mixing literal text and templates still JSON-encodes object/array fragments inside the string.
 
 Example combining multiple sources:
 

@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
@@ -46,6 +44,10 @@ func (m *MCPServer) Start() error {
 	srv.AddTool(m.toolGetRunStatus(), m.handleGetRunStatus)
 	srv.AddTool(m.toolListWorkflows(), m.handleListWorkflows)
 	srv.AddTool(m.toolDeleteWorkflow(), m.handleDeleteWorkflow)
+
+	srv.AddTool(m.toolListUserSecrets(), m.handleListUserSecrets)
+	srv.AddTool(m.toolUpsertUserSecrets(), m.handleUpsertUserSecrets)
+	srv.AddTool(m.toolDeleteUserSecret(), m.handleDeleteUserSecret)
 
 	return mcpserver.ServeStdio(srv)
 }
@@ -434,19 +436,6 @@ func parseErrorHandler(raw any) types.ErrorHandler {
 }
 
 // ---- helpers ----
-
-// loadUserEnv reads DataDir/{userID}/env.json as map[string]string.
-func (m *MCPServer) loadUserEnv() map[string]string {
-	data, err := os.ReadFile(filepath.Join(m.DataDir, m.UserID, "env.json"))
-	if err != nil {
-		return map[string]string{}
-	}
-	var env map[string]string
-	if err := json.Unmarshal(data, &env); err != nil {
-		return map[string]string{}
-	}
-	return env
-}
 
 // jsonResult marshals v and wraps it as a text tool result.
 func jsonResult(v any) (*mcplib.CallToolResult, error) {

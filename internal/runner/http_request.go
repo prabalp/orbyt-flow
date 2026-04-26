@@ -16,7 +16,7 @@ type httpRequestConfig struct {
 	Method         string            `json:"method"`
 	URL            string            `json:"url"`
 	Headers        map[string]string `json:"headers"`
-	Body           string            `json:"body"`
+	Body           json.RawMessage   `json:"body"`
 	Auth           httpAuth          `json:"auth"`
 	TimeoutSeconds int               `json:"timeout_seconds"`
 }
@@ -56,8 +56,8 @@ func (r *HTTPRequestRunner) Run(ctx context.Context, input Input) (*Output, erro
 	}
 
 	var bodyReader io.Reader
-	if cfg.Body != "" {
-		bodyReader = strings.NewReader(cfg.Body)
+	if len(cfg.Body) > 0 && string(cfg.Body) != "null" && string(cfg.Body) != `""` {
+		bodyReader = strings.NewReader(string(cfg.Body))
 	}
 
 	req, err := http.NewRequestWithContext(reqCtx, method, cfg.URL, bodyReader)
@@ -93,6 +93,15 @@ func (r *HTTPRequestRunner) Run(ctx context.Context, input Input) (*Output, erro
 		if len(vs) > 0 {
 			respHeaders[k] = vs[0]
 		}
+	}
+
+	var parsedBody interface{}
+	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
+		return marshalOutput(map[string]any{
+			"status_code": resp.StatusCode,
+			"body":        parsedBody,
+			"headers":     respHeaders,
+		})
 	}
 
 	return marshalOutput(map[string]any{

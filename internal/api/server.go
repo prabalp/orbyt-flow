@@ -48,6 +48,9 @@ type Server struct {
 	Port     int
 	indexMu  sync.Mutex
 	handler  http.Handler
+
+	adminPassword string
+	adminSessions *adminSessionStore
 }
 
 // NewServer creates a Server and pre-builds all routes.
@@ -80,6 +83,14 @@ func (s *Server) buildRoutes() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", s.handleHealth)
+
+	mux.HandleFunc("POST /admin/api/login", s.handleAdminLogin)
+	mux.HandleFunc("POST /admin/api/logout", s.handleAdminLogout)
+	mux.HandleFunc("GET /admin/api/overview", s.requireAdminSession(s.handleAdminOverview))
+	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /admin/{$}", s.serveAdminHTML)
 
 	mux.HandleFunc("POST /workflows", s.auth(s.handleCreateWorkflow))
 	mux.HandleFunc("GET /workflows", s.auth(s.handleListWorkflows))

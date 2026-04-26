@@ -300,3 +300,57 @@ func TestWebhookTrigger(t *testing.T) {
 		t.Error("run_id missing")
 	}
 }
+
+func TestAdminDisabledWithoutPassword(t *testing.T) {
+	srv := newTestServer(t)
+
+	rr := do(t, srv, http.MethodGet, "/admin/api/overview", nil, nil)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("overview: got %d, want 404", rr.Code)
+	}
+
+	rr = do(t, srv, http.MethodPost, "/admin/api/login", map[string]string{"password": "x"}, nil)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("login: got %d, want 404", rr.Code)
+	}
+}
+
+func TestAdminLoginAndOverview(t *testing.T) {
+	srv := newTestServer(t)
+	srv.SetAdminPassword("secret-admin")
+
+	rr := do(t, srv, http.MethodPost, "/admin/api/login", map[string]string{"password": "wrong"}, nil)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("login wrong password: got %d, want 401", rr.Code)
+	}
+
+	rr = do(t, srv, http.MethodPost, "/admin/api/login", map[string]string{"password": "secret-admin"}, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("login: got %d, want 200 — %s", rr.Code, rr.Body)
+	}
+	cookies := rr.Result().Cookies()
+	var session *http.Cookie
+	for _, c := range cookies {
+		if c.Name == "orbyt_admin_session" {
+			session = c
+			break
+		}
+	}
+	if session == nil || session.Value == "" {
+		t.Fatal("expected session cookie")
+	}
+
+	rr = do(t, srv, http.MethodGet, "/admin/api/overview", nil, map[string]string{
+		"Cookie": session.String(),
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("overview: got %d, want 200 — %s", rr.Code, rr.Body)
+	}
+	var overview map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&overview); err != nil {
+		t.Fatal(err)
+	}
+	if overview["data_dir"] == nil {
+		t.Error("expected data_dir in overview")
+	}
+}

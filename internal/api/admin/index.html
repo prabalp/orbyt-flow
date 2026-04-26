@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>orbyt-flow — admin</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #5b9cf5;
+      --ok: #3ecf8e;
+      --err: #f07178;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: var(--surface);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    header .meta { font-size: 0.85rem; color: var(--muted); }
+    main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      margin: 0 0 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input[type="password"], input[type="text"] {
+      width: 100%;
+      max-width: 320px;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: var(--accent);
+      color: #0a0e14;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    button:hover { filter: brightness(1.08); }
+    .row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+    .msg { margin-top: 0.75rem; font-size: 0.9rem; }
+    .msg.err { color: var(--err); }
+    .msg.ok { color: var(--ok); }
+    .hidden { display: none !important; }
+    details.user {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      background: var(--bg);
+    }
+    details.user > summary {
+      list-style: none;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    details.user > summary::-webkit-details-marker { display: none; }
+    details.user > summary::before {
+      content: "▸";
+      color: var(--muted);
+      display: inline-block;
+      width: 1rem;
+    }
+    details.user[open] > summary::before { content: "▾"; }
+    .path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .user-body { padding: 0 1rem 1rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 500; }
+    tr:last-child td { border-bottom: none; }
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      background: var(--border);
+      color: var(--text);
+    }
+    .empty { color: var(--muted); font-size: 0.9rem; padding: 0.5rem 0; }
+    pre.raw {
+      margin: 0.5rem 0 0;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      font-size: 0.72rem;
+      overflow: auto;
+      max-height: 220px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>orbyt-flow admin</h1>
+      <div class="meta" id="dataDirLine"></div>
+    </div>
+    <div class="row" id="authBar">
+      <span class="hidden row" id="loggedInBar">
+        <span class="meta">Signed in</span>
+        <button type="button" class="secondary" id="logoutBtn">Sign out</button>
+      </span>
+    </div>
+  </header>
+  <main>
+    <div class="card" id="loginCard">
+      <h2>Sign in</h2>
+      <form id="loginForm">
+        <label for="pw">Admin password</label>
+        <div class="row" style="margin-top:0.25rem">
+          <input id="pw" name="password" type="password" autocomplete="current-password" required />
+          <button type="submit">Sign in</button>
+        </div>
+        <div class="msg err hidden" id="loginErr"></div>
+      </form>
+    </div>
+
+    <div class="card hidden" id="dashCard">
+      <h2>Data layout</h2>
+      <p class="meta" style="margin:0 0 1rem">Each user folder contains <code>workflows/*.json</code>, <code>runs/</code>, and optional env files.</p>
+      <div id="tree"></div>
+    </div>
+
+    <div class="card hidden" id="schedCard">
+      <h2>Schedules</h2>
+      <p class="meta" style="margin:0 0 1rem">Workflows whose trigger type is <span class="pill">schedule</span></p>
+      <div id="schedTableWrap"></div>
+    </div>
+  </main>
+  <script>
+    const loginCard = document.getElementById("loginCard");
+    const dashCard = document.getElementById("dashCard");
+    const schedCard = document.getElementById("schedCard");
+    const loginForm = document.getElementById("loginForm");
+    const loginErr = document.getElementById("loginErr");
+    const loggedInBar = document.getElementById("loggedInBar");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const dataDirLine = document.getElementById("dataDirLine");
+    const tree = document.getElementById("tree");
+    const schedTableWrap = document.getElementById("schedTableWrap");
+
+    async function api(path, opts) {
+      const r = await fetch(path, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(opts && opts.headers) },
+        ...opts,
+      });
+      return r;
+    }
+
+    function showLogin(msg) {
+      loginCard.classList.remove("hidden");
+      dashCard.classList.add("hidden");
+      schedCard.classList.add("hidden");
+      loggedInBar.classList.add("hidden");
+      if (msg) {
+        loginErr.textContent = msg;
+        loginErr.classList.remove("hidden");
+      } else {
+        loginErr.classList.add("hidden");
+      }
+    }
+
+    function showDash(data) {
+      loginCard.classList.add("hidden");
+      dashCard.classList.remove("hidden");
+      schedCard.classList.remove("hidden");
+      loggedInBar.classList.remove("hidden");
+      loginErr.classList.add("hidden");
+
+      dataDirLine.textContent = "Data directory: " + data.data_dir;
+
+      tree.innerHTML = "";
+      if (!data.users || data.users.length === 0) {
+        tree.innerHTML = '<p class="empty">No user folders with workflows yet.</p>';
+      } else {
+        for (const u of data.users) {
+          const det = document.createElement("details");
+          det.className = "user";
+          det.open = data.users.length <= 3;
+          const sum = document.createElement("summary");
+          sum.innerHTML = '<span>' + escapeHtml(u.user_id) + '</span> <span class="path">' + escapeHtml(u.workflow_dir) + '</span>';
+          det.appendChild(sum);
+          const body = document.createElement("div");
+          body.className = "user-body";
+          if (!u.workflows || u.workflows.length === 0) {
+            body.innerHTML = '<p class="empty">No workflows.</p>';
+          } else {
+            for (const w of u.workflows) {
+              const wf = document.createElement("details");
+              wf.style.marginBottom = "0.75rem";
+              const wsum = document.createElement("summary");
+              wsum.style.cursor = "pointer";
+              wsum.innerHTML = escapeHtml(w.name) + ' <span class="pill">' + escapeHtml(w.trigger && w.trigger.type || "?") + '</span> <span class="path">' + escapeHtml(w.workflow_id) + ".json</span>";
+              wf.appendChild(wsum);
+              const pre = document.createElement("pre");
+              pre.className = "raw";
+              pre.textContent = JSON.stringify(w, null, 2);
+              wf.appendChild(pre);
+              body.appendChild(wf);
+            }
+          }
+          det.appendChild(body);
+          tree.appendChild(det);
+        }
+      }
+
+      schedTableWrap.innerHTML = "";
+      if (!data.schedules || data.schedules.length === 0) {
+        schedTableWrap.innerHTML = '<p class="empty">No scheduled workflows.</p>';
+      } else {
+        const t = document.createElement("table");
+        t.innerHTML = "<thead><tr><th>User</th><th>Workflow</th><th>Cron</th><th>Time zone</th><th>ID</th></tr></thead>";
+        const tb = document.createElement("tbody");
+        for (const s of data.schedules) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td>" + escapeHtml(s.user_id) + "</td><td>" + escapeHtml(s.name) + "</td><td><code>" + escapeHtml(s.cron || "—") + "</code></td><td>" + escapeHtml(s.tz || "—") + "</td><td class=\"path\">" + escapeHtml(s.workflow_id) + "</td>";
+          tb.appendChild(tr);
+        }
+        t.appendChild(tb);
+        schedTableWrap.appendChild(t);
+      }
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function refresh() {
+      const r = await api("/admin/api/overview");
+      if (r.status === 401) {
+        showLogin("");
+        return;
+      }
+      if (r.status === 404) {
+        showLogin("Admin UI is not configured (set ORBYT_ADMIN_PASSWORD in the environment or .env).");
+        return;
+      }
+      if (!r.ok) {
+        showLogin("Could not load overview.");
+        return;
+      }
+      const data = await r.json();
+      showDash(data);
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginErr.classList.add("hidden");
+      const password = document.getElementById("pw").value;
+      const r = await api("/admin/api/login", {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      if (r.status === 404) {
+        loginErr.textContent = "Admin UI is not configured.";
+        loginErr.classList.remove("hidden");
+        return;
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        loginErr.textContent = j.error || "Sign in failed.";
+        loginErr.classList.remove("hidden");
+        return;
+      }
+      document.getElementById("pw").value = "";
+      await refresh();
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await api("/admin/api/logout", { method: "POST", body: "{}" });
+      showLogin("");
+    });
+
+    refresh();
+  </script>
+</body>
+</html>

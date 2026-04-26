@@ -45,7 +45,7 @@ func writeAtomic(path string, v any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
-	data, err := json.Marshal(v)
+	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Errorf("store: %w", err)
 	}

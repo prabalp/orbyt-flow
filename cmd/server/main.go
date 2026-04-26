@@ -6,12 +6,17 @@ import (
 	"strconv"
 
 	"orbyt-flow/internal/api"
+	"orbyt-flow/internal/env"
 	"orbyt-flow/internal/executor"
 	mcpsrv "orbyt-flow/internal/mcp"
 	"orbyt-flow/internal/store"
 )
 
 func main() {
+	if err := env.ApplyDotEnv(".env"); err != nil {
+		log.Printf("warning: load .env: %v", err)
+	}
+
 	dataDir := getEnv("FLOWENGINE_DATA_DIR", "./data")
 	port, _ := strconv.Atoi(getEnv("PORT", "8085"))
 
@@ -27,6 +32,7 @@ func main() {
 		}
 	} else {
 		srv := api.NewServer(s, ex, dataDir, port)
+		srv.SetAdminPassword(getEnv("ORBYT_ADMIN_PASSWORD", ""))
 		log.Printf("orbyt-flow starting on port %d", port)
 		if err := srv.Start(); err != nil {
 			log.Fatal(err)

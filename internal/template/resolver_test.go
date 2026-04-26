@@ -156,3 +156,210 @@ func TestMissingKeyReturnsError(t *testing.T) {
 		}
 	}
 }
+
+func slackCtx() *template.Context {
+	return &template.Context{
+		NodeOutputs: map[string]interface{}{
+			"fetch_messages": map[string]interface{}{
+				"body": map[string]interface{}{
+					"ok": true,
+					"messages": []interface{}{
+						map[string]interface{}{"text": "Hello world"},
+						map[string]interface{}{"text": "ooooo yeahhh"},
+						map[string]interface{}{"subtype": "channel_join", "text": "<@U123> has joined"},
+					},
+				},
+			},
+			"objnode": map[string]interface{}{
+				"body": map[string]interface{}{
+					"nested": map[string]interface{}{"count": 3.0},
+					"arr":    []interface{}{1.0, 2.0},
+				},
+			},
+		},
+		Env:  map[string]string{},
+		Vars: map[string]interface{}{},
+	}
+}
+
+func TestBracketArrayIndexing(t *testing.T) {
+	ctx := slackCtx()
+
+	got, err := template.Resolve("{{fetch_messages.body.messages[0].text}}", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "Hello world" {
+		t.Errorf("got %q want Hello world", got)
+	}
+
+	got, err = template.Resolve("{{fetch_messages.body.messages[-1].text}}", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "<@U123> has joined" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestWildcardFieldJoin(t *testing.T) {
+	ctx := slackCtx()
+
+	want := "Hello world\nooooo yeahhh\n<@U123> has joined"
+	got, err := template.Resolve("{{fetch_messages.body.messages[*].text}}", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
+
+func TestBoolAndDefaultModifier(t *testing.T) {
+	ctx := slackCtx()
+
+	got, err := template.Resolve("{{fetch_messages.body.ok}}", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "true" {
+		t.Errorf("bool scalar: got %q", got)
+	}
+
+	got, err = template.Resolve(`{{fetch_messages.body.missing_key | default: "none"}}`, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "none" {
+		t.Errorf("default: got %q", got)
+	}
+
+	got, err = template.Resolve(`{{fetch_messages.body.missing_key | default: ""}}`, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Errorf("default empty: got %q", got)
+	}
+}
+
+func TestJSONInjectionObjectInStringField(t *testing.T) {
+	ctx := slackCtx()
+
+	raw := json.RawMessage(`{"payload": "{{objnode.body.nested}}"}`)
+	out, err := template.ResolveJSON(raw, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(out, &result); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := result["payload"].(string)
+	if !ok {
+		t.Fatalf("payload type %T", result["payload"])
+	}
+	var check map[string]interface{}
+	if err := json.Unmarshal([]byte(payload), &check); err != nil {
+		t.Fatalf("payload is not JSON: %q err %v", payload, err)
+	}
+	if check["count"] != float64(3) {
+		t.Errorf("payload JSON: %#v", check)
+	}
+}
+
+func TestJSONFullTemplateObjectStaysJSONString(t *testing.T) {
+	ctx := slackCtx()
+
+	raw := json.RawMessage(`{"nested": "{{objnode.body.nested}}"}`)
+	out, err := template.ResolveJSON(raw, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(out, &result); err != nil {
+		t.Fatal(err)
+	}
+	nested, ok := result["nested"].(string)
+	if !ok {
+		t.Fatalf("want JSON string field, got %T", result["nested"])
+	}
+	var check map[string]interface{}
+	if err := json.Unmarshal([]byte(nested), &check); err != nil {
+		t.Fatal(err)
+	}
+	if check["count"] != float64(3) {
+		t.Errorf("nested: %#v", check)
+	}
+}
+
+func TestJSONFullTemplateArrayStaysJSONString(t *testing.T) {
+	ctx := slackCtx()
+
+	raw := json.RawMessage(`{"items": "{{objnode.body.arr}}"}`)
+	out, err := template.ResolveJSON(raw, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(out, &result); err != nil {
+		t.Fatal(err)
+	}
+	itemsStr, ok := result["items"].(string)
+	if !ok {
+		t.Fatalf("want JSON string field, got %T", result["items"])
+	}
+	var arr []interface{}
+	if err := json.Unmarshal([]byte(itemsStr), &arr); err != nil {
+		t.Fatal(err)
+	}
+	if len(arr) != 2 {
+		t.Fatal(arr)
+	}
+}
+
+func TestMixedStringEmbedsJSONForObjectFragment(t *testing.T) {
+	ctx := slackCtx()
+
+	raw := json.RawMessage(`{"x": "before {{objnode.body.nested}} after"}`)
+	out, err := template.ResolveJSON(raw, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(out, &result); err != nil {
+		t.Fatal(err)
+	}
+	x := result["x"].(string)
+	if x != `before {"count":3} after` && x != `before {"count":3.0} after` {
+		t.Errorf("got %q", x)
+	}
+}
+
+func TestUnknownModifierErrors(t *testing.T) {
+	ctx := baseCtx()
+	_, err := template.Resolve(`{{env.API_KEY | noop: "x"}}`, ctx)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveJSONFullTemplateWithDefault(t *testing.T) {
+	ctx := slackCtx()
+	raw := json.RawMessage(`{"x": "{{fetch_messages.body.missing_key | default: \"none\"}}"}`)
+	out, err := template.ResolveJSON(raw, ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal(out, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["x"] != "none" {
+		t.Fatalf("got %#v", result["x"])
+	}
+}
